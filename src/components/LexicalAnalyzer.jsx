@@ -112,7 +112,7 @@ const LexicalAnalyzer = (props) => {
   //ProcessToken function
   const ProcessToken = () => {
     const typeSwitch = () => {
-      output.Token = RESERVEDWORDSANDSYMBOLS[output.lexeme] || "unknown";
+      output.Token = RESERVEDWORDSANDSYMBOLS[output.lexeme] || "idt";
     };
 
     while (currPosition < txtLength) {
@@ -135,7 +135,7 @@ const LexicalAnalyzer = (props) => {
             currPosition++;
             output.lexeme += GetNextCh();
           }
-          output.Token = "idt";
+          typeSwitch();
           if (output.lexeme.length > 17) {
             output.lexeme = "idt too long!"
           }
