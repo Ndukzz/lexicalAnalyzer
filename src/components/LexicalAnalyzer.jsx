@@ -83,7 +83,7 @@ const LexicalAnalyzer = (props) => {
     } else {
       return ""; // End of file
     }
-  };  //  End of GetNextCh function
+  }; //  End of GetNextCh function
 
   //  GetNextToken function
   const GetNextToken = () => {
@@ -107,7 +107,7 @@ const LexicalAnalyzer = (props) => {
       // Log the output after processing a token
       console.log(output);
     }
-  };  //  End of GetNextToken
+  }; //  End of GetNextToken
 
   //ProcessToken function
   const ProcessToken = () => {
@@ -135,7 +135,9 @@ const LexicalAnalyzer = (props) => {
             currPosition++;
             output.lexeme += GetNextCh();
           }
-          typeSwitch();
+          output.Token = "idt";
+          if (output.lexeme.length > 17) {
+          }
           // Log the output when a token is done processing
           console.log(output);
           break;
@@ -146,11 +148,11 @@ const LexicalAnalyzer = (props) => {
             currPosition++;
             output.lexeme += GetNextCh();
           }
-          typeSwitch();
+          output.Token = "numt";
           // Log the output when a token is done processing
           console.log(output);
           break;
-          //  Catching comments
+        //  Catching comments
         case output.lexeme == "(" || output.lexeme == "*":
           const testComment = output.lexeme + ch;
           if (RESERVEDWORDSANDSYMBOLS[testComment]) {
@@ -186,9 +188,9 @@ const LexicalAnalyzer = (props) => {
           }
           break;
       }
-      currPosition++;   //  Increase the currPosition for fetching chars in the code
+      currPosition++; //  Increase the currPosition for fetching chars in the code
     }
-  };  //  End of ProcessToken function
+  }; //  End of ProcessToken function
 
   GetNextToken();
 
