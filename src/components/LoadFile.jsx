@@ -1,5 +1,5 @@
 import React, { ChangeEvent, useState } from "react";
-import Results from "./Results";
+import LexicalAnalyzer from "./LexicalAnalyzer";
 
 const FileInputComponent = () => {
   const [fileContent, setFileContent] = useState(null);
@@ -31,7 +31,7 @@ const FileInputComponent = () => {
         <div>
           <h4>File Content:</h4>
           <pre>{fileContent}</pre>
-          <Results file={fileContent} />
+          <LexicalAnalyzer file={fileContent} />
         </div>
       )}
     </div>
