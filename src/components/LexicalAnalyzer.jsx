@@ -112,7 +112,7 @@ const LexicalAnalyzer = (props) => {
   //ProcessToken function
   const ProcessToken = () => {
     const typeSwitch = () => {
-      output.Token = RESERVEDWORDSANDSYMBOLS[output.lexeme] || "idt";
+      output.Token = RESERVEDWORDSANDSYMBOLS[output.lexeme] || "unknown";
     };
 
     while (currPosition < txtLength) {
