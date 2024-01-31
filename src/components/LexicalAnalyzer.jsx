@@ -137,6 +137,7 @@ const LexicalAnalyzer = (props) => {
           }
           output.Token = "idt";
           if (output.lexeme.length > 17) {
+            output.lexeme = "idt too long!"
           }
           // Log the output when a token is done processing
           console.log(output);
@@ -152,6 +153,7 @@ const LexicalAnalyzer = (props) => {
           // Log the output when a token is done processing
           console.log(output);
           break;
+          
         //  Catching comments
         case output.lexeme == "(" || output.lexeme == "*":
           const testComment = output.lexeme + ch;
@@ -165,6 +167,7 @@ const LexicalAnalyzer = (props) => {
             console.log(output);
           }
           break;
+          
         default:
           // Check for double tokens
           const doubleToken = output.lexeme + ch;
