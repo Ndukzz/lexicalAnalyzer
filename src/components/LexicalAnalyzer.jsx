@@ -136,7 +136,7 @@ const LexicalAnalyzer = (props) => {
             output.lexeme += GetNextCh();
           }
           typeSwitch();
-          if (output.lexeme.length > 17) {
+          if (output.lexeme.length > 17) {    // 	idt of max length = 17
             output.lexeme = "idt too long!"
           }
           // Log the output when a token is done processing
