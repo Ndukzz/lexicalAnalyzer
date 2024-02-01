@@ -137,7 +137,8 @@ const LexicalAnalyzer = (props) => {
           }
           typeSwitch();
           if (output.lexeme.length > 17) {    // 	idt of max length = 17
-            output.lexeme = "idt too long!"
+            output.Token = "unknown";
+            console.log("Identifier too long!");
           }
           // Log the output when a token is done processing
           console.log(output);
