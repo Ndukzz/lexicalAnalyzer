@@ -65,11 +65,11 @@ const RESERVEDWORDSANDSYMBOLS = {
 
 const LexicalAnalyzer = (props) => {
   let currPosition = 0;
-  let ch = props.file[currPosition];
+  let ch = props.file[currPosition+1];
   let txtLength = props.file.length;
   let lineCount = 1;
   let output = {
-    lexeme: "",
+    lexeme: props.file[currPosition],
     Token: "",
   };
 
@@ -112,7 +112,7 @@ const LexicalAnalyzer = (props) => {
   //ProcessToken function
   const ProcessToken = () => {
     const typeSwitch = () => {
-      output.Token = RESERVEDWORDSANDSYMBOLS[output.lexeme] || "idt";
+      output.Token = RESERVEDWORDSANDSYMBOLS[output.lexeme] || "unknown";
     };
 
     while (currPosition < txtLength) {
@@ -122,7 +122,7 @@ const LexicalAnalyzer = (props) => {
         case /\s/.test(ch): // Skip whitespace
           if (ch == "\n") {
             lineCount++;
-            console.log(lineCount);
+            console.log("Line Number :" + lineCount);
           }
           if (output.lexeme !== "") {
             // Log the output when a token is done processing
@@ -135,10 +135,8 @@ const LexicalAnalyzer = (props) => {
             currPosition++;
             output.lexeme += GetNextCh();
           }
-          typeSwitch();
-          if (output.lexeme.length > 17) {    // 	idt of max length = 17
-            output.Token = "unknown";
-            console.log("Identifier too long!");
+          output.Token = "idt";
+          if (output.lexeme.length > 17) {
           }
           // Log the output when a token is done processing
           console.log(output);
@@ -154,7 +152,6 @@ const LexicalAnalyzer = (props) => {
           // Log the output when a token is done processing
           console.log(output);
           break;
-          
         //  Catching comments
         case output.lexeme == "(" || output.lexeme == "*":
           const testComment = output.lexeme + ch;
@@ -165,10 +162,9 @@ const LexicalAnalyzer = (props) => {
             console.log(output);
           } else {
             output.lexeme = ch;
-            console.log(output);
+            // console.log(output);
           }
           break;
-          
         default:
           // Check for double tokens
           const doubleToken = output.lexeme + ch;
@@ -178,7 +174,7 @@ const LexicalAnalyzer = (props) => {
             // Log the output when a token is done processing
             console.log(output);
             typeSwitch();
-            output.lexeme = "";
+            // output.lexeme = "";
           } else if (
             RESERVEDWORDSANDSYMBOLS[ch + props.file[currPosition + 1]]
           ) {
