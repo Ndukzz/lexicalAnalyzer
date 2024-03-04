@@ -1,115 +1,128 @@
+import HashTable from "./HashTable";
+
 class Parser {
   constructor(tokens) {
     this.tokens = tokens;
     this.currentTokenIndex = 0;
     this.currentToken = this.tokens[this.currentTokenIndex];
+    this.depth = 0; // depth of nested expressions (parentheses)
+    this.currentBlock = "";
+    this.identifiers = [];
+    this.hashTable = new HashTable();
   }
 
   parseProgram() {
     const declarations = [];
+
     while (
       this.currentTokenIndex + 1 != this.tokens.length &&
-      this.currentToken.type !== "eoft"
+      this.currentToken.token !== "eoft"
     ) {
       declarations.push(this.parseDeclaration());
-      if (this.currentToken.type === "semicolonT") {
+      if (this.currentToken.token === "semicolonT") {
         this.consume("semicolonT");
       }
-      // else if(this.currentToken.type === "endT"){
-      //   this.advance();
-      //   this.consume('idT');
-      //   console.log("In here !");
-      // if (this.currentToken.type === 'eofT') {
-      //   console.log("End of file!!");
-      // }
-      // }
     }
     return declarations;
   }
-
+  
   parseEndToken() {
-    if (this.currentToken.type === "endT") {
+    if (this.currentToken.token === "endT") {
       this.advance();
       this.consume("idT");
     }
-    if (this.currentToken.type === "eofT") {
-      this.parseProgram();
+    if (this.currentToken.token === "eofT") {
+      console.log("End of program...");
+      // this.hashTable.writeTable(2);
+      // this.hashTable.deleteDepth(2);
+      this.hashTable.lookup("am");
+      // console.log(this.hashTable.storage);
     }
   }
 
   parseDeclaration() {
-    if (this.currentToken.type === "moduleT") {
+    this.identifiers = [];
+    if (this.currentToken.token === "moduleT") {
+      // MODULE DECLARATION
       this.advance(); // Consume "moduleT"
       this.consume("idT"); // Consume module name
       this.consume("semicolonT"); // Consume semicolon
-      while (this.currentToken.type !== "eofT") {
+      this.depth++;
+      // console.log(this.depth);
+      while (this.currentToken.token !== "eofT") {
         this.parseDeclaration();
         this.consume("semicolonT");
+        this.identifiers = [];
       }
       this.parseEndToken();
       this.consume("idT");
 
-      return { type: "ModuleDeclaration" };
-    } else if (this.currentToken.type === "procedureT") {
+      return { declType: "ModuleDeclaration" };
+    } else if (this.currentToken.token === "procedureT") {
+      //PROCEDURE DECLARATION
       this.advance(); // Consume "procedureT"
       this.consume("idT"); // Consume procedure name
-      const procedureName = this.currentToken.value;
-      let parameters;
-      if (this.currentToken.type === "LparenT") {
+      const procedureName = this.currentToken.lexeme;
+      let identifiers;
+      if (this.currentToken.token === "LparenT") {
+        // If there are paranteses
         this.advance();
-        parameters = [];
-        while (this.currentToken.type === "idT") {
-          parameters = this.parseIdentifier();
-          console.log(parameters);
+        // parameterList = [];
+        while (this.currentToken.token === "idT") {   // parse all identifiers
+          identifiers = this.parseIdentifier();
         }
-        if (parameters.length > 1) {
-          this.consume("colonT");
-          const type = this.parseType();
-          this.consume("RparenT");
-          this.consume("colonT");
-          const outerType = this.parseType();
+        this.consume("colonT");
+        const type = this.parseType();
+        this.consume("RparenT");
+        this.consume("colonT");
+        const returnType = this.parseType();
+        // console.log(identifiers);
 
-          return { type: "ProcedureDeclaration", parameters, type };
-        } else {
-          const parameter = parameters[0];
-          this.consume("colonT");
-          const type = this.parseType();
-          this.consume("RparenT");
-          this.consume("colonT");
-          const outerType = this.parseType();
-          return { type: "ProcedureDeclaration", parameter, type };
-        }
-      } else {
-        // if there are no parentheses
-        return { type: "ProcedureDeclaration", procedureName, parameters };
+        //  calling the insert method on the symbol table
+        this.hashTable.insert(identifiers, 'idT', this.depth)
       }
+      this.consume("semicolonT");
+      this.depth++;
+      // console.log(this.depth);
+      while (this.currentToken.token !== "eofT") {
+        this.parseDeclaration();
+        this.consume("semicolonT");
+        this.identifiers = [];
+      }
+      this.parseEndToken();
+      this.consume("idT");
     }
     //  parse The VAR statement
-    else if (this.currentToken.type === "varT") {
-      this.advance(); // Consume "varT"
+    else if (
+      this.currentToken.token === "varT" ||
+      this.currentToken.token === "constT"
+    ) {
+      // add const
+      //  VAR DECLARATION
+      const varConst = this.advance(); // Consume "varT"  or "constT" token
       let identifiers = [];
-      while (this.currentToken.type === "idT") {
+      while (this.currentToken.token === "idT") {
         identifiers = this.parseIdentifier();
-        console.log(identifiers);
+        // console.log(identifiers);
       }
-      if (identifiers.length > 1) {
-        this.consume("colonT");
-        const type = this.parseType();
-        return { type: "VariableDeclaration", identifiers, type };
-      } else {
-        const identifier = identifiers[0];
-        this.consume("colonT");
-        const type = this.parseType();
-        return { type: "VariableDeclaration", identifier, type };
-      }
-    } else if (this.currentToken.type === "beginT") {
-      console.log("Begin Block entered!!");
+      this.consume("colonT");
+      const type = this.parseType();
+      // console.log(varConst);
+
+      //  calling the insert method on the symbol table
+      this.hashTable.insert(identifiers, 'idT', this.depth)
+
+      // return { declType: "VariableDeclaration", varConst, identifiers, type };
+    } else if (this.currentToken.token === "beginT") {
+      //  BEGIN DECLARATION
+      // console.log("Begin Block entered!!");
       this.advance(); // Consume "beginT"
       const statements = this.parseStatements();
-      this.consume("endT");
-      this.consume("idT");
-      console.log("Begin block ended!!");
-      return { type: "BeginEndBlock", statements };
+      this.parseEndToken();
+      // console.log("Begin block ended!!");
+      this.depth--;
+      // console.log(this.depth);
+      return { declType: "BeginEndBlock", statements };
     } else {
       throw new SyntaxError("Unexpected token");
     }
@@ -119,31 +132,28 @@ class Parser {
     const statements = [];
     while (
       this.currentToken &&
-      this.currentToken.type !== "eofT" &&
-      this.currentToken.type !== "endT"
+      this.currentToken.token !== "eofT" &&
+      this.currentToken.token !== "endT"
     ) {
       statements.push(this.parseStatement());
-      if (this.currentToken.type === "semicolonT") {
+      if (this.currentToken.token === "semicolonT") {
         this.advance();
       }
     }
-    // if (this.currentToken.type === "endT") {
-    //   this.advance();
-    // }
     return statements;
   }
 
   parseStatement() {
-    if (this.currentToken.type === "idT") {
-      const identifier = this.currentToken.value;
+    if (this.currentToken.token === "idT") {
+      const identifier = this.currentToken.lexeme;
       this.advance(); // Consume identifier
 
-      if (this.currentToken.type === "assignT") {
+      if (this.currentToken.token === "assignT") {
         this.advance();
         const expression = this.parseExpression();
         return { type: "AssignmentStatement", identifier, expression };
       }
-    } else if (this.currentToken.type === "whileT") {
+    } else if (this.currentToken.token === "whileT") {
       this.advance(); // Consume "whileT"
       const condition = this.parseExpression();
       this.consume("doT");
@@ -155,12 +165,12 @@ class Parser {
   }
   parseType() {
     if (
-      this.currentToken.type === "intT" ||
-      this.currentToken.type === "charT" ||
-      this.currentToken.type === "realT" ||
-      this.currentToken.type === "boolT"
+      this.currentToken.token === "intT" ||
+      this.currentToken.token === "charT" ||
+      this.currentToken.token === "realT" ||
+      this.currentToken.token === "boolT"
     ) {
-      const type = this.currentToken.type;
+      const type = this.currentToken.token;
       this.advance();
       return type;
     } else {
@@ -169,42 +179,38 @@ class Parser {
   }
 
   parseIdentifier() {
-    const identifiers = [];
     let identifier;
-    if (this.currentToken.type === "idT") {
-      identifier = this.currentToken.value;
-      identifiers.push(identifier);
+    if (this.currentToken.token === "idT") {
+      identifier = this.currentToken.lexeme;
+      // console.log("Identifier: ", identifier);
+      this.identifiers.push(identifier);
       this.advance();
-      if (this.currentToken.type === "commaT") {
-        console.log("am i in?");
+      if (this.currentToken.token === "commaT") {
         this.advance();
         this.parseIdentifier();
       }
-      if (this.currentToken.type === "semicolonT") {
+      if (this.currentToken.token === "semicolonT") {
         this.advance();
-        // if (this.currentToken.type === "idT") {
-        //   this.consume("idT")
-        // }
       }
-      // this.consume("colonT");
     }
-    if (this.currentToken.type === "idT") {
+    if (this.currentToken.token === "idT") {
       this.parseIdentifier();
     }
-    if (identifiers.length === 0) {
+    if (this.identifiers.length === 0) {
       // if (!identifier) {
       throw new SyntaxError("Expected identifier");
     }
-    return identifiers;
+    return this.identifiers;
   }
 
   parseExpression() {
     let term = this.parseTerm();
     while (
       this.currentToken &&
-      (this.currentToken.type === "relOp" || this.currentToken.type === "addOp")
+      (this.currentToken.token === "relOp" ||
+        this.currentToken.token === "addOp")
     ) {
-      const operator = this.currentToken.value;
+      const operator = this.currentToken.lexeme;
       this.advance();
       const nextTerm = this.parseTerm();
       term = {
@@ -219,8 +225,8 @@ class Parser {
 
   parseTerm() {
     let factor = this.parseFactor();
-    while (this.currentToken && this.currentToken.type === "mulOp") {
-      const operator = this.currentToken.value;
+    while (this.currentToken && this.currentToken.token === "mulOp") {
+      const operator = this.currentToken.lexeme;
       this.advance();
       const nextFactor = this.parseFactor();
       factor = {
@@ -234,15 +240,15 @@ class Parser {
   }
 
   parseFactor() {
-    if (this.currentToken.type === "numT") {
-      const number = this.currentToken.value;
+    if (this.currentToken.token === "numT") {
+      const number = this.currentToken.lexeme;
       this.advance();
       return { type: "NumberLiteral", value: number };
-    } else if (this.currentToken.type === "idT") {
-      const identifier = this.currentToken.value;
+    } else if (this.currentToken.token === "idT") {
+      const identifier = this.currentToken.lexeme;
       this.advance();
       return { type: "Identifier", name: identifier };
-    } else if (this.currentToken.type === "LparenT") {
+    } else if (this.currentToken.token === "LparenT") {
       this.advance();
       const expression = this.parseExpression();
       this.consume("RparenT");
@@ -253,17 +259,17 @@ class Parser {
   }
 
   consume(expectedType) {
-    console.log("Consume: ", this.currentTokenIndex + 1);
+    // console.log("Consume: ", this.currentTokenIndex + 1);
     if (
       this.currentTokenIndex + 1 === this.tokens.length &&
-      this.currentToken.type === "eofT"
+      this.currentToken.token === "eofT"
     ) {
       return;
-    } else if (this.currentToken.type === expectedType) {
-      this.advance();
+    } else if (this.currentToken.token === expectedType) {
+      return this.advance();
     } else {
       throw new SyntaxError(
-        `Expected ${expectedType} but found ${this.currentToken.type} at ${
+        `Expected ${expectedType} but found ${this.currentToken.token} at ${
           this.currentTokenIndex + 1
         }`
       );
@@ -271,11 +277,13 @@ class Parser {
   }
 
   advance() {
-    console.log("Advance: ", this.currentTokenIndex + 1);
+    // console.log("Advance: ", this.currentTokenIndex + 1);
     if (this.currentTokenIndex < this.tokens.length - 1) {
-      console.log(this.currentToken, this.tokens[this.currentTokenIndex]);
+      const oldToken = this.currentToken;
+      // console.log(this.currentToken.token);
       this.currentTokenIndex++;
       this.currentToken = this.tokens[this.currentTokenIndex];
+      return oldToken.token;
     } else {
       this.currentToken = { type: "EOF" };
     }

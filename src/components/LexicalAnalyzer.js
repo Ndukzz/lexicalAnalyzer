@@ -107,10 +107,10 @@ const LexicalAnalyzer = (input) => {
     if ( commCount == 0 ) {
       // tokenList.push(output.Token);
       tokenList.push({
-        type: output.Token,
-        value: output.lexeme
+        token: output.Token,
+        lexeme: output.lexeme
       });
-      console.log(output);
+      // console.log(output);
 
     } else if(output.Token == "closeCommentT" && commCount !== 0 ){
       console.log("Missing Open comment...");
