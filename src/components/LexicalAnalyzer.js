@@ -27,9 +27,10 @@ const RESERVEDWORDSANDSYMBOLS = {
   ":=": "assignT",
   "+": "addOp",
   "-": "addOp",
+  "%": "mulOp",
   "*": "mulOp",
   "/": "mulOp",
-  "=": "relOp",
+  "=": "equalT",
   "<": "relOp",
   ">": "relOp",
   "<=": "relOp",
@@ -37,12 +38,12 @@ const RESERVEDWORDSANDSYMBOLS = {
   "#": "relOp",
   "^": "caretT",
   "~": "notT",
-  "&": "andT",
+  "&": "MulOp",
   ".": "eofT",
   ",": "commaT",
   ";": "semicolonT",
   "..": "doubledotT",
-  "|": "orT",
+  "|": "addOp",
   ":": "colonT",
   "(": "LparenT",
   ")": "RparenT",
@@ -55,7 +56,7 @@ const RESERVEDWORDSANDSYMBOLS = {
 
 const LexicalAnalyzer = (input) => {
   let currPosition = 0;
-  let ch = input[currPosition+1];
+  let ch = input[currPosition + 1];
   let txtLength = input.length;
   let lineCount = 1;
   let commCount = 0;
@@ -63,7 +64,7 @@ const LexicalAnalyzer = (input) => {
     lexeme: input[currPosition],
     Token: "",
   };
-  let  tokenList = [];
+  let tokenList = [];
 
   //Rule for identifying whitespace
   const whiteSpace = /^\s+/;
@@ -104,19 +105,18 @@ const LexicalAnalyzer = (input) => {
 
   //  Handles the output of tokens relating to comments
   const outputToken = () => {
-    if ( commCount == 0 ) {
+    if (commCount == 0) {
       // tokenList.push(output.Token);
       tokenList.push({
         token: output.Token,
-        lexeme: output.lexeme
+        lexeme: output.lexeme,
       });
       // console.log(output);
-
-    } else if(output.Token == "closeCommentT" && commCount !== 0 ){
+    } else if (output.Token == "closeCommentT" && commCount !== 0) {
       console.log("Missing Open comment...");
       //  HANDLE ANY EXTRA PROCEDURES FOR A MISSING COMMENT
     }
-  }  
+  };
 
   //ProcessToken function
   const ProcessToken = () => {
@@ -143,15 +143,18 @@ const LexicalAnalyzer = (input) => {
           }
           typeSwitch();
           if (output.lexeme.length > 17) {
-              output.Token = "unknownT";
+            output.Token = "unknownT";
           }
           // Log the output when a token is done processing
           outputToken();
           break;
 
-          case /\d/.test(ch): // Start of a number
+        case /\d/.test(ch): // Start of a number
           output.lexeme = ch;
-          while (/\d/.test(input[currPosition + 1]) || /\./.test(input[currPosition + 1])) {
+          while (
+            /\d/.test(input[currPosition + 1]) ||
+            /\./.test(input[currPosition + 1])
+          ) {
             currPosition++;
             output.lexeme += GetNextCh();
           }
@@ -170,13 +173,14 @@ const LexicalAnalyzer = (input) => {
 
           //  if its a comment "(*" or "*)"
           if (RESERVEDWORDSANDSYMBOLS[testComment]) {
-
             //  Setting the inComment to enable skipping chars in comments
-            if(RESERVEDWORDSANDSYMBOLS[testComment] == "openCommentT"){
-              commCount ++;
-            } else if (RESERVEDWORDSANDSYMBOLS[testComment] == "closeCommentT") {
-              commCount --;
-            } 
+            if (RESERVEDWORDSANDSYMBOLS[testComment] == "openCommentT") {
+              commCount++;
+            } else if (
+              RESERVEDWORDSANDSYMBOLS[testComment] == "closeCommentT"
+            ) {
+              commCount--;
+            }
             output.lexeme = testComment;
             output.Token = RESERVEDWORDSANDSYMBOLS[output.lexeme];
             // outputToken();
@@ -194,9 +198,7 @@ const LexicalAnalyzer = (input) => {
             outputToken();
             typeSwitch();
             // output.lexeme = "";
-          } else if (
-            RESERVEDWORDSANDSYMBOLS[ch + input[currPosition + 1]]
-          ) {
+          } else if (RESERVEDWORDSANDSYMBOLS[ch + input[currPosition + 1]]) {
             output.lexeme = ch;
             typeSwitch();
             // Log the output when a token is done processing
@@ -209,8 +211,8 @@ const LexicalAnalyzer = (input) => {
       }
       currPosition++; //  Increase the currPosition for fetching chars in the code
     }
-  }; //  End of ProcessToken function 
-  
+  }; //  End of ProcessToken function
+
   ProcessToken();
   return tokenList;
 };

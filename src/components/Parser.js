@@ -7,25 +7,35 @@ class Parser {
     this.currentToken = this.tokens[this.currentTokenIndex];
     this.depth = 0; // depth of nested expressions (parentheses)
     this.currentBlock = "";
+    this.type = null;
     this.identifiers = [];
     this.hashTable = new HashTable();
+    this.procInfo = {
+      formalSize: 0,
+      numOfParams: 0,
+      paramInfo: [],
+    };
+  }
+
+  insertIdentifiers({ identifiers, type, depth, extraInfo = {} }) {
+    this.hashTable.insert(identifiers, type, depth, extraInfo);
+    this.Identifiers = [];
   }
 
   parseProgram() {
-    const declarations = [];
-
-    while (
-      this.currentTokenIndex + 1 != this.tokens.length &&
-      this.currentToken.token !== "eoft"
-    ) {
-      declarations.push(this.parseDeclaration());
-      if (this.currentToken.token === "semicolonT") {
-        this.consume("semicolonT");
-      }
-    }
-    return declarations;
+    this.consume("moduleT"); // Consume "moduleT"
+    this.consume("idT"); // Consume module name
+    this.consume("semicolonT"); // Consume semicolon
+    this.depth++;
+    // console.log(this.depth);
+    this.DeclarativePart();
+    this.StatementPart();
+    this.parseEndToken();
+    this.consume("idT");
+    this.hashTable.writeTable(this.depth);
+    this.depth--;
   }
-  
+
   parseEndToken() {
     if (this.currentToken.token === "endT") {
       this.advance();
@@ -33,229 +43,360 @@ class Parser {
     }
     if (this.currentToken.token === "eofT") {
       console.log("End of program...");
-      // this.hashTable.writeTable(2);
-      // this.hashTable.deleteDepth(2);
-      this.hashTable.lookup("am");
-      // console.log(this.hashTable.storage);
     }
   }
 
-  parseDeclaration() {
-    this.identifiers = [];
-    if (this.currentToken.token === "moduleT") {
-      // MODULE DECLARATION
-      this.advance(); // Consume "moduleT"
-      this.consume("idT"); // Consume module name
-      this.consume("semicolonT"); // Consume semicolon
-      this.depth++;
-      // console.log(this.depth);
-      while (this.currentToken.token !== "eofT") {
-        this.parseDeclaration();
-        this.consume("semicolonT");
-        this.identifiers = [];
-      }
-      this.parseEndToken();
-      this.consume("idT");
-
-      return { declType: "ModuleDeclaration" };
-    } else if (this.currentToken.token === "procedureT") {
-      //PROCEDURE DECLARATION
-      this.advance(); // Consume "procedureT"
-      this.consume("idT"); // Consume procedure name
-      const procedureName = this.currentToken.lexeme;
-      let identifiers;
-      if (this.currentToken.token === "LparenT") {
-        // If there are paranteses
-        this.advance();
-        // parameterList = [];
-        while (this.currentToken.token === "idT") {   // parse all identifiers
-          identifiers = this.parseIdentifier();
-        }
-        this.consume("colonT");
-        const type = this.parseType();
-        this.consume("RparenT");
-        this.consume("colonT");
-        const returnType = this.parseType();
-        // console.log(identifiers);
-
-        //  calling the insert method on the symbol table
-        this.hashTable.insert(identifiers, 'idT', this.depth)
-      }
-      this.consume("semicolonT");
-      this.depth++;
-      // console.log(this.depth);
-      while (this.currentToken.token !== "eofT") {
-        this.parseDeclaration();
-        this.consume("semicolonT");
-        this.identifiers = [];
-      }
-      this.parseEndToken();
-      this.consume("idT");
+  GetSize(value) {
+    let size = undefined;
+    switch (value) {
+      case "INTEGER":
+        size = 2;
+        break;
+      case "CHAR":
+        size = 2;
+        break;
+      case "REAL":
+        size = 4;
+        break;
+      default:
+        break;
     }
-    //  parse The VAR statement
-    else if (
-      this.currentToken.token === "varT" ||
-      this.currentToken.token === "constT"
-    ) {
-      // add const
-      //  VAR DECLARATION
-      const varConst = this.advance(); // Consume "varT"  or "constT" token
+    return size;
+  }
+  DeclarativePart() {
+    this.ConstPart();
+    this.VarPart();
+    this.ProcPart();
+  }
+
+  ConstPart() {
+    if (this.currentToken.token === "constT") {
+      this.consume("constT");
+      this.ConstTail();
+    } else {
+      return;
+    }
+  }
+
+  ConstTail() {
+    if (this.currentToken.token === "idT") {
       let identifiers = [];
-      while (this.currentToken.token === "idT") {
-        identifiers = this.parseIdentifier();
-        // console.log(identifiers);
-      }
+      identifiers.push(this.currentToken.lexeme);
+      this.consume("idT");
+      let depth = this.depth;
+      this.consume("equalT");
+      let value = this.Value();
+      let type = "CONSTANT";
+      // this.hashTable.insert()
+      let extraInfo = {
+        value,
+      };
+
+      this.insertIdentifiers({ identifiers, type, depth, extraInfo });
+      this.consume("semicolonT");
+
+      this.ConstTail();
+    } else {
+      return;
+    }
+  }
+  VarPart() {
+    if (this.currentToken.token === "varT") {
+      this.consume("varT");
+      this.VarTail();
+    } else {
+      return;
+    }
+  }
+  VarTail() {
+    if (this.currentToken.token === "idT") {
+      let type, depth;
+      this.identifiers = [];
+      let identifiers = this.IdentifierList();
       this.consume("colonT");
-      const type = this.parseType();
-      // console.log(varConst);
-
-      //  calling the insert method on the symbol table
-      this.hashTable.insert(identifiers, 'idT', this.depth)
-
-      // return { declType: "VariableDeclaration", varConst, identifiers, type };
-    } else if (this.currentToken.token === "beginT") {
-      //  BEGIN DECLARATION
-      // console.log("Begin Block entered!!");
-      this.advance(); // Consume "beginT"
-      const statements = this.parseStatements();
-      this.parseEndToken();
-      // console.log("Begin block ended!!");
-      this.depth--;
-      // console.log(this.depth);
-      return { declType: "BeginEndBlock", statements };
+      type = this.TypeMark();
+      depth = this.depth;
+      this.identifiers = [];
+      let size = this.GetSize(type);
+      let extraInfo = {
+        size,
+      };
+      // insert into hashTable
+      this.insertIdentifiers({ identifiers, type, depth, extraInfo });
+      this.identifiers = [];
+      this.consume("semicolonT");
+      this.VarTail();
     } else {
-      throw new SyntaxError("Unexpected token");
+      return;
     }
   }
-
-  parseStatements() {
-    const statements = [];
-    while (
-      this.currentToken &&
-      this.currentToken.token !== "eofT" &&
-      this.currentToken.token !== "endT"
-    ) {
-      statements.push(this.parseStatement());
-      if (this.currentToken.token === "semicolonT") {
-        this.advance();
-      }
-    }
-    return statements;
-  }
-
-  parseStatement() {
-    if (this.currentToken.token === "idT") {
-      const identifier = this.currentToken.lexeme;
-      this.advance(); // Consume identifier
-
-      if (this.currentToken.token === "assignT") {
-        this.advance();
-        const expression = this.parseExpression();
-        return { type: "AssignmentStatement", identifier, expression };
-      }
-    } else if (this.currentToken.token === "whileT") {
-      this.advance(); // Consume "whileT"
-      const condition = this.parseExpression();
-      this.consume("doT");
-      const body = this.parseStatements();
-      return { type: "WhileLoop", condition, body };
-    } else {
-      throw new SyntaxError("Unexpected token");
-    }
-  }
-  parseType() {
-    if (
-      this.currentToken.token === "intT" ||
-      this.currentToken.token === "charT" ||
-      this.currentToken.token === "realT" ||
-      this.currentToken.token === "boolT"
-    ) {
-      const type = this.currentToken.token;
-      this.advance();
-      return type;
-    } else {
-      throw new SyntaxError("Expected type");
-    }
-  }
-
-  parseIdentifier() {
-    let identifier;
-    if (this.currentToken.token === "idT") {
-      identifier = this.currentToken.lexeme;
-      // console.log("Identifier: ", identifier);
-      this.identifiers.push(identifier);
-      this.advance();
+  IdentifierList() {
+    while (this.currentToken.token === "idT") {
+      this.identifiers.push(this.currentToken.lexeme);
+      this.consume("idT");
       if (this.currentToken.token === "commaT") {
-        this.advance();
-        this.parseIdentifier();
+        this.consume("commaT");
+        this.IdentifierList();
       }
-      if (this.currentToken.token === "semicolonT") {
-        this.advance();
-      }
-    }
-    if (this.currentToken.token === "idT") {
-      this.parseIdentifier();
-    }
-    if (this.identifiers.length === 0) {
-      // if (!identifier) {
-      throw new SyntaxError("Expected identifier");
     }
     return this.identifiers;
   }
-
-  parseExpression() {
-    let term = this.parseTerm();
-    while (
-      this.currentToken &&
-      (this.currentToken.token === "relOp" ||
-        this.currentToken.token === "addOp")
-    ) {
-      const operator = this.currentToken.lexeme;
-      this.advance();
-      const nextTerm = this.parseTerm();
-      term = {
-        type: "BinaryExpression",
-        operator,
-        left: term,
-        right: nextTerm,
-      };
+  TypeMark() {
+    let type;
+    const currTkn = this.currentToken;
+    if (currTkn.token === "intT") {
+      type = currTkn.lexeme;
+      this.consume("intT");
+    } else if (currTkn.token === "realT") {
+      type = currTkn.lexeme;
+      this.consume("realT");
+    } else if (currTkn.token === "charT") {
+      type = currTkn.lexeme;
+      this.consume("charT");
     }
-    return term;
+    return type;
   }
-
-  parseTerm() {
-    let factor = this.parseFactor();
-    while (this.currentToken && this.currentToken.token === "mulOp") {
-      const operator = this.currentToken.lexeme;
-      this.advance();
-      const nextFactor = this.parseFactor();
-      factor = {
-        type: "BinaryExpression",
-        operator,
-        left: factor,
-        right: nextFactor,
-      };
-    }
-    return factor;
+  Value() {
+    let value = this.NumericalLiteral();
+    return value;
   }
-
-  parseFactor() {
-    if (this.currentToken.token === "numT") {
-      const number = this.currentToken.lexeme;
-      this.advance();
-      return { type: "NumberLiteral", value: number };
-    } else if (this.currentToken.token === "idT") {
-      const identifier = this.currentToken.lexeme;
-      this.advance();
-      return { type: "Identifier", name: identifier };
-    } else if (this.currentToken.token === "LparenT") {
-      this.advance();
-      const expression = this.parseExpression();
-      this.consume("RparenT");
-      return expression;
+  ProcPart() {
+    if (this.currentToken.token === "procedureT") {
+      this.depth++;
+      this.ProcedureDecl();
+      this.ProcPart();
     } else {
-      throw new SyntaxError("Unexpected token");
+      return;
     }
+  }
+  ProcedureDecl() {
+    let type;
+    this.ProcHeading();
+    if (this.currentToken.token === "colonT") {
+      this.consume("colonT");
+      this.TypeMark();
+    }
+    this.consume("semicolonT");
+
+    this.ProcBody();
+    this.consume("idT");
+    this.consume("semicolonT");
+  }
+  ProcHeading() {
+    let procName = this.consume("procedureT");
+    let identifiers = [procName];
+    this.consume("idT");
+    let procInfo = this.Args();
+    this.hashTable.insert(identifiers, "Procedure", this.depth, procInfo);
+    //RESET THE PROCINFO might move this up
+    this.procInfo = {
+      formalSize: 0,
+      numOfParams: 0,
+      paramInfo: {},
+    };
+  }
+  ProcBody() {
+    this.DeclarativePart();
+    this.StatementPart();
+    this.consume("endT");
+    this.hashTable.writeTable(this.depth);
+    this.depth--;
+  }
+  Args() {
+    if (this.currentToken.token === "LparenT") {
+      this.consume("LparenT");
+      let procInfo = this.ArgList();
+      this.consume("RparenT");
+      return procInfo;
+    } else {
+      return;
+    }
+  }
+  ArgList() {
+    let type, depth;
+    let passingMode = this.Mode();
+    this.identifiers = [];
+    let identifiers = this.IdentifierList();
+    this.consume("colonT");
+    type = this.TypeMark();
+    depth = this.depth;
+    let size = this.GetSize(type);
+    //  Setting the information of the procedure
+    this.procInfo.formalSize += size * identifiers.length;
+    this.procInfo.numOfParams += identifiers.length;
+    identifiers.map((identifier) => {
+      let info = {
+        name: identifier,
+        type,
+        passingMode,
+      };
+      this.procInfo.paramInfo.push(info);
+    });
+
+    let extraInfo = {
+      formalSize: this.procInfo.formalSize,
+      numOfParams: this.procInfo.numOfParams,
+      paramInfo: this.procInfo.paramInfo, // type and passing Mode
+    };
+    //  insert into the hashTable
+    this.insertIdentifiers({ identifiers, type, depth });
+    this.Identifiers = [];
+    let moreArgs = this.MoreArgs();
+    if (moreArgs === null) {
+      return extraInfo;
+    } else {
+      // update the formalSize and numOfParams to be derived from the param Info
+      extraInfo = {
+        formalSize: (this.procInfo.formalSize + moreArgs.formalSize) / 2,
+        numOfParams: (this.procInfo.numOfParams + moreArgs.numOfParams) / 2,
+        paramInfo: { ...this.procInfo.paramInfo, ...moreArgs.paramInfo },
+      };
+    }
+    return extraInfo;
+  }
+  MoreArgs() {
+    if (this.currentToken.token === "semicolonT") {
+      this.consume("semicolonT");
+      let procInfo = this.ArgList();
+      return procInfo;
+    } else {
+      return null;
+    }
+  }
+  Mode() {
+    if (this.currentToken.token === "varT") {
+      this.consume("varT");
+      return "value";
+    } else {
+      return "reference";
+    }
+  }
+  StatementPart() {
+    if (this.currentToken.token === "beginT") {
+      this.consume("beginT");
+      this.SeqOfStatements();
+    } else {
+      return;
+    }
+  }
+  NumericalLiteral() {
+    let adv = this.advance(); //WORKON
+    return adv;
+  }
+  SeqOfStatements() {
+    if (this.currentToken.token === "idT") {
+      this.Statement();
+      this.consume("semicolonT");
+      this.StatTail();
+    } else {
+      return null;
+    }
+  }
+  StatTail() {
+    if (this.currentToken.token === "idT") {
+      this.Statement();
+      this.consume("semicolonT");
+      this.StatTail();
+    } else {
+      return null;
+    }
+  }
+  Statement() {
+    if (this.currentToken.token === "idT") {
+      this.AssignStat();
+    } else {
+      this.IOStat();
+    }
+  }
+  AssignStat() {
+    this.consume("idT");
+    this.consume("assignT");
+    this.Expr();
+  }
+  IOStat() {
+    return null;
+  }
+  Expr() {
+    this.Relation();
+  }
+  Relation() {
+    this.SimpleExpr();
+  }
+  SimpleExpr() {
+    this.Term();
+    this.MoreTerm();
+  }
+  MoreTerm() {
+    if (this.currentToken.token === "addOp") {
+      this.Addop();
+      this.Term();
+      this.MoreTerm();
+    } else {
+      return null;
+    }
+  }
+  Term() {
+    this.Factor();
+    this.MoreFactor();
+  }
+  MoreFactor() {
+    if (this.currentToken.token === "mulOp") {
+      this.Mulop();
+      this.Factor();
+      this.MoreFactor();
+    } else {
+      return null;
+    }
+  }
+  Factor() {
+    switch (this.currentToken.token) {
+      case "idT":
+        this.consume("idT");
+        break;
+      case "numT":
+        this.consume("numT");
+        break;
+      case "LparenT":
+        this.consume("LparenT");
+        this.Expr();
+        this.consume("RparenT");
+        break;
+      case "notT":
+        this.consume("notT");
+        this.Factor();
+        break;
+      case "SignOp": //WORKON: It wasn't clear
+        this.SignOp();
+        this.Factor();
+        break;
+      default:
+        break;
+    }
+  }
+  Addop() {
+    switch (this.currentToken.token) {
+      case "addOp":
+        return this.currentToken.lexeme;
+        break;
+      case "orT":
+        return this.currentToken.lexeme;
+        break;
+      default:
+        break;
+    }
+  }
+  Mulop() {
+    switch (this.currentToken.token) {
+      case "mulOp":
+        return this.currentToken.lexeme;
+        break;
+      default:
+        break;
+    }
+  }
+
+  SignOp() {
+    return null; // wasnt clear on this too
   }
 
   consume(expectedType) {
@@ -266,32 +407,28 @@ class Parser {
     ) {
       return;
     } else if (this.currentToken.token === expectedType) {
-      return this.advance();
+      this.advance();
+      return this.currentToken.lexeme;
     } else {
       throw new SyntaxError(
         `Expected ${expectedType} but found ${this.currentToken.token} at ${
           this.currentTokenIndex + 1
-        }`
+        }`,
       );
     }
   }
 
   advance() {
-    // console.log("Advance: ", this.currentTokenIndex + 1);
+    // console.log("Advance: ", this.currentToken.lexeme);
     if (this.currentTokenIndex < this.tokens.length - 1) {
       const oldToken = this.currentToken;
       // console.log(this.currentToken.token);
       this.currentTokenIndex++;
       this.currentToken = this.tokens[this.currentTokenIndex];
-      return oldToken.token;
+      return oldToken.lexeme;
     } else {
       this.currentToken = { type: "EOF" };
     }
   }
 }
-
-// const parser = new Parser(tokens);
-// const ast = parser.parseProgram();
-// console.log(ast);
-
 export default Parser;
