@@ -16,7 +16,22 @@ class LinkedList {
   // Different methods
   // Insert first Node
   insertHead(data) {
-    this.head = new Node(data, this.head);
+    if (!this.head) {
+      this.head = new Node(data);
+    } else {
+      let current = this.head;
+      while (current.next) {
+        if (current.data.lexeme === data.lexeme && current.data.depth === data.depth) {
+          return;
+        } else 
+        current = current.next;
+      }
+      this.head = new Node(data, this.head);
+      if (current.data.lexeme === data.lexeme && current.data.depth === data.depth) {
+        console.log(`Variable ${data.lexeme} already declared.`);
+        return;
+      }
+    }
     this.size++;
   }
 
@@ -101,45 +116,110 @@ var hash = (string, max) => {
   return hash % max;
 }; // End hash function
 
+// ------------------------------------------------------------------------------
+
 class HashTable {
   constructor() {
     this.storage = [];
     this.storageLimit = 5;
-  }
-
-  writeTable(depth) {
-    console.log(this.storage);
-    for (let i = 0; i < this.storage.length; i++) {
-      let current = this.storage[i].head;
-      while (current.data && current.next !== null) {
-        if (current.data.depth === depth) {
-          console.log(`These are the variables at depth ${depth} : `);
-          console.log(current.data);
-        }
-        current = current.next;
-      }
+    this.offsetTracker = {
+      // depth: offsetTracker
+      1:0
     }
   }
 
-  insert(lexeme, token, depth) {
-    // takes the list of lexeme and hashes each one
+  writeTable(depth) {
+    let depthList = [];
+    if (depth) {
+      for (let i = 0; i < this.storage.length; i++) {
+        let current = this.storage[i].head;
+        while (current.data) {
+          if (current.data.depth === depth) {
+            depthList.push(`${current.data.lexeme}`);
+            // console.log(current.data);
+          }
+          if (current.next) {
+            current = current.next;
+          } else {
+            break;
+          }
+        }
+      }
+      console.log("The lexeme found in depth " + depth + ":");
+      depthList.forEach(element => {
+        console.log(element);
+      });
+      console.log("Exiting depth...");
+    } else {
+      this.storage.map((node) => {
+        let store = node.head;
+        while(store.data) {
+          console.log(`${store.data.lexeme} : ${store.data.offset}`);
+          if (store.next === null) {
+            break;
+          } else (
+            store = store.next
+          )
+        }
+      })
+      console.log(this.storage);
+    }
+  }
+
+  insert(lexeme, type, depth, props) {
+    // ---------------------------------------
+    
     for (let i = 0; i < lexeme.length; i++) {
+      let offset;
+      if(depth in this.offsetTracker){
+        this.offsetTracker[depth]++;
+        // console.log(this.offsetTracker[depth]);
+        offset = this.offsetTracker[depth];
+      }else {
+        this.offsetTracker = {...this.offsetTracker, [depth]: 0};
+        this.offsetTracker[depth]++;
+        offset = this.offsetTracker[depth];
+        // console.log(this.offsetTracker[depth]);
+      }
+
       let index = hash(lexeme[i], this.storageLimit); // hash the lexeme
       let data = {
         lexeme: lexeme[i],
-        token,
+        type,
+        offset,
         depth,
-      };
-      // console.log(data);
+        ...props
+      }; 
+
       // Using the result of the hash as its index in hash table
       if (this.storage[index] === undefined) {
         //  if there is no bucket at that index
         let newList = new LinkedList();
         newList.insertHead(data);
         this.storage[index] = newList;
-      } else {
+      } else if (this.storage[index] != undefined) {
+        let current = this.storage[index].head;
+        while (current.data) {
+          // Check if the data/variable name already exists in the list
+          // console.log(data, current.data);
+          if (
+            data.lexeme == current.data.lexeme &&
+            data.depth == current.data.depth
+          ) {
+            console.error(`Variable ${data.lexeme} already declared.`);
+            return;
+          } else {
+            this.storage[index].insertHead(data);
+            // console.log("Passed! " + data.lexeme +" " + data.offset);
+          }
+          // this.current = this.current.next
+          if (current.next != null) {
+            current = current.next;
+          } else {
+            break;
+          }
+        }
         // If there is a bucket add to it
-        this.storage[index].insertHead(data);
       }
     }
     // console.log(this.storage);
@@ -165,6 +245,8 @@ class HashTable {
 
   lookup(lexeme) {
     // use hash to find the location of lexeme
+
+    // console.log(lexeme, " from lookup");
     let hashIndex = hash(lexeme, this.storageLimit);
     let current = this.storage[hashIndex].head;
     console.log("Looking up: ", lexeme);
@@ -176,9 +258,8 @@ class HashTable {
       }
       current = current.next;
     }
+    return current.data;
   }
 }
-const ht = new HashTable();
-console.log();
 
 export default HashTable;
