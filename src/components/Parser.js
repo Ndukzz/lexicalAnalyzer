@@ -1,3 +1,6 @@
+// Turn on the writettable function
+//  work on the MoreTerm function
+
 import HashTable from "./HashTable";
 
 class Parser {
@@ -27,7 +30,7 @@ class Parser {
     this.consume("idT"); // Consume module name
     this.consume("semicolonT"); // Consume semicolon
     this.depth++;
-    // console.log(this.depth);
+    // //  console.log(this.depth);
     this.DeclarativePart();
     this.StatementPart();
     this.parseEndToken();
@@ -42,8 +45,7 @@ class Parser {
       this.consume("idT");
     }
     if (this.currentToken.token === "eofT") {
-      console.log("End of program...");
-      
+      //  console.log("End of program...");
     }
   }
 
@@ -163,7 +165,6 @@ class Parser {
   }
   ProcPart() {
     if (this.currentToken.token === "procedureT") {
-      this.depth++;
       this.ProcedureDecl();
       this.ProcPart();
     } else {
@@ -182,13 +183,16 @@ class Parser {
     this.ProcBody();
     this.consume("idT");
     this.consume("semicolonT");
+    this.hashTable.writeTable(this.depth);
+    this.depth--;
   }
   ProcHeading() {
     let procName = this.consume("procedureT");
     let identifiers = [procName];
     this.consume("idT");
+    let currentDepth = this.depth++;
     let procInfo = this.Args();
-    this.hashTable.insert(identifiers, "Procedure", this.depth, procInfo);
+    this.hashTable.insert(identifiers, "Procedure", currentDepth, procInfo);
     //RESET THE PROCINFO might move this up
     this.procInfo = {
       formalSize: 0,
@@ -200,8 +204,6 @@ class Parser {
     this.DeclarativePart();
     this.StatementPart();
     this.consume("endT");
-    this.hashTable.writeTable(this.depth);
-    this.depth--;
   }
   Args() {
     if (this.currentToken.token === "LparenT") {
@@ -309,64 +311,134 @@ class Parser {
       this.IOStat();
     }
   }
-  AssignStat() { 
-    this.consume( "idT" );
+  AssignStat() {
+    let idt = this.consume("idT");
     this.consume("assignT");
-    this.Expr();
+    let expr = this.Expr();
+    //  console.log(expr);
+    this.hashTable.setValue(idt, expr);
   }
   IOStat() {
     return null;
   }
   Expr() {
-    this.Relation();
+    return this.Relation();
   }
   Relation() {
-    this.SimpleExpr();
+    return this.SimpleExpr();
   }
+
+  //////////////////////////////////////////////////
   SimpleExpr() {
-    this.Term();
-    this.MoreTerm();
+    let term = this.Term();
+    //  //  console.log(term);
+    let result;
+    let moreTerm = this.MoreTerm();
+    //  //  console.log(moreTerm);
+
+    // HANDLE THE RESULTS OF MORETERM
+    if (moreTerm == null) {
+      return term; // Work on this
+    } else {
+      term = HandleAddOp(term, moreTerm.value, moreTerm.operator);
+    }
+    return term;
   }
   MoreTerm() {
-    if(this.currentToken.token === "addOp") {
-      this.Addop();
-      this.Term();
-      this.MoreTerm();
+    let term;
+    if (this.currentToken.token === "addOp") {
+      const operator = this.Addop();
+      // //  console.log(operator);
+      term = this.Term();
+
+      let moreTerm = this.MoreTerm();
+      if (moreTerm) {
+        term = HandleAddOp(term, moreTerm.value, moreTerm.operator);
+      }
+      return {
+        operator,
+        value: parseInt(term),
+      };
     } else {
       return null;
     }
   }
+  //////////////////////////////////////////////////
   Term() {
-    this.Factor();
-    this.MoreFactor();
+    let factor = this.Factor();
+    if (factor == "varNotFoundError") {
+      // Attempted handling the errors
+      throw new Error("Variable not found");
+      return;
+    }
+    let moreFactor = this.MoreFactor();
+    // //  console.log(moreFactor);
+    if (!isNaN(factor)) {
+      // if the factor is a number
+      factor = parseNumber(factor); // convert the string to number
+    }
+    if (moreFactor) {
+      factor = HandleMulOp(factor, moreFactor.value, moreFactor.operator);
+      // //  console.log(factor);
+    }
+    return factor; // UPDATE that eventually
   }
   MoreFactor() {
-    if (this.currentToken.token === "mulOp") { 
-      this.Mulop();
-      this.Factor();
-      this.MoreFactor();
+    let factor;
+    if (this.currentToken.token === "mulOp") {
+      // //  console.log("IN MULOP");
+      let operator = this.Mulop();
+      factor = this.Factor();
+      if (!isNaN(factor)) {
+        // if the factor is a number
+        factor = parseNumber(factor); // convert the string to number
+      }
+
+      let moreFactor = this.MoreFactor();
+      // //  console.log(moreFactor);
+      if (moreFactor) {
+        factor = HandleMulOp(factor, moreFactor.value, moreFactor.operator);
+        // //  console.log(factor);
+      }
+      return {
+        operator,
+        value: factor,
+      };
     } else {
       return null;
     }
   }
   Factor() {
-    switch (this.currentToken.token) {
+    const currToken = this.currentToken;
+    switch (currToken.token) {
       case "idT":
-        this.consume("idT")
+        let token = this.consume("idT");
+        const lookup = this.hashTable.lookup(token);
+        if (lookup.value) {
+          return parseNumber(lookup.value); // convert the string to number
+          // return parseInt(lookup.value);
+        } else {
+          //  console.error(`Error Message: Undefined variable ${token}`);
+          return "varNotFoundError";
+        }
         break;
       case "numT":
-        this.consume("numT")
+        const numT = this.consume("numT");
+        return numT;
         break;
       case "LparenT":
         this.consume("LparenT");
-        this.Expr();
+        let expr = this.Expr(); //work on this
         this.consume("RparenT");
+        //  console.log(expr);
+        return expr;
         break;
       case "notT":
         this.consume("notT");
-        this.Factor();
+        let factor = this.Factor();
+        return `!${factor}`;
         break;
-      case "SignOp":    //WORKON: It wasn't clear
+      case "SignOp": //WORKON: It wasn't clear
         this.SignOp();
         this.Factor();
         break;
@@ -377,19 +449,19 @@ class Parser {
   Addop() {
     switch (this.currentToken.token) {
       case "addOp":
-        return this.currentToken.lexeme;
+        return this.consume("addOp");
         break;
       case "orT":
-        return this.currentToken.lexeme;
+        return this.consume("orT");
         break;
       default:
         break;
     }
   }
-  Mulop(){
+  Mulop() {
     switch (this.currentToken.token) {
       case "mulOp":
-        return this.currentToken.lexeme;
+        return this.consume("mulOp");
         break;
       default:
         break;
@@ -397,19 +469,21 @@ class Parser {
   }
 
   SignOp() {
-    return null;  // wasnt clear on this too
+    return null; // wasnt clear on this too
   }
 
   consume(expectedType) {
-    // console.log("Consume: ", this.currentTokenIndex + 1);
+    // //  console.log("Consume: ", this.currentTokenIndex + 1);
     if (
       this.currentTokenIndex + 1 === this.tokens.length &&
       this.currentToken.token === "eofT"
     ) {
       return;
     } else if (this.currentToken.token === expectedType) {
+      // //  console.log(this.currentToken);
+      let currLex = this.currentToken.lexeme;
       this.advance();
-      return this.currentToken.lexeme;
+      return currLex;
     } else {
       throw new SyntaxError(
         `Expected ${expectedType} but found ${this.currentToken.token} at ${
@@ -420,10 +494,10 @@ class Parser {
   }
 
   advance() {
-    // console.log("Advance: ", this.currentToken.lexeme);
+    // //  console.log("Advance: ", this.currentToken.lexeme);
     if (this.currentTokenIndex < this.tokens.length - 1) {
       const oldToken = this.currentToken;
-      // console.log(this.currentToken.token);
+      // //  console.log(this.currentToken.token);
       this.currentTokenIndex++;
       this.currentToken = this.tokens[this.currentTokenIndex];
       return oldToken.lexeme;
@@ -431,5 +505,51 @@ class Parser {
       this.currentToken = { type: "EOF" };
     }
   }
-  };
+}
 export default Parser;
+
+// Addition and multiplication handling functions
+
+const HandleMulOp = (x, y, op) => {
+  switch (op) {
+    case "*":
+      x *= y;
+      break;
+    case "/":
+      x /= y;
+      break;
+    case "%":
+      x %= y;
+      break;
+    case "&":
+      x &&= y;
+      break;
+    default:
+      break;
+  }
+  return x;
+};
+const HandleAddOp = (x, y, op) => {
+  switch (op) {
+    case "+":
+      x += y;
+      break;
+    case "-":
+      x -= y;
+      break;
+    case "|":
+      x ||= y;
+      break;
+    default:
+      break;
+  }
+  return x;
+};
+
+const parseNumber = (x) => {
+  if (!Number.isInteger(x)) {
+    return parseFloat(x);
+  } else {
+    return parseInt(x);
+  }
+};

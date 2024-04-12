@@ -30,7 +30,7 @@ const FileInputComponent = () => {
     if (tokenList) {
       const tokenParser = new Parser(tokenList);
       let output = tokenParser.parseProgram();
-      console.log(output);
+      // console.log(output);
     }
 
   return (
