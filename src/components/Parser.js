@@ -307,7 +307,6 @@ class Parser {
     }
   }
   Statement() {
-    console.log("In the beast!!");
     if (this.currentToken.token === "idT") {
       this.AssignStat();
     } else {
@@ -553,7 +552,7 @@ class Parser {
       // //  console.log(this.currentToken);
       let currLex = this.currentToken.lexeme;
       this.advance();
-      console.log(this.currentToken.lexeme);
+      // console.log(this.currentToken.lexeme);
       return currLex;
     } else {
       throw new SyntaxError(

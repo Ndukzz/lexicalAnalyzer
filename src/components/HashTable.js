@@ -291,7 +291,7 @@ class HashTable {
     // console.log(lexeme, " from lookup");
     let hashIndex = hash(lexeme, this.storageLimit);
     let current = this.storage[hashIndex].head;
-    console.log("Looking up: ", lexeme);
+    // console.log("Looking up: ", lexeme);
       while (current) {
         if (current.data.lexeme === lexeme) {
           // console.log(current.data);
