@@ -18,6 +18,7 @@ class Parser {
       numOfParams: 0,
       paramInfo: [],
     };
+    this.threeAddressCode = [];
   }
 
   insertIdentifiers({ identifiers, type, depth, extraInfo = {} }) {
@@ -187,9 +188,10 @@ class Parser {
     this.depth--;
   }
   ProcHeading() {
-    let procName = this.consume("procedureT");
+    this.consume("procedureT");
+    let procName = this.consume("idT");
     let identifiers = [procName];
-    this.consume("idT");
+    // this.consume("idT");
     let currentDepth = this.depth++;
     let procInfo = this.Args();
     this.hashTable.insert(identifiers, "Procedure", currentDepth, procInfo);
@@ -305,19 +307,87 @@ class Parser {
     }
   }
   Statement() {
+    console.log("In the beast!!");
     if (this.currentToken.token === "idT") {
       this.AssignStat();
     } else {
       this.IOStat();
     }
   }
+  ///----------------///----------------///----------------///----------------///----------------
   AssignStat() {
+    // adjust action depending on assignment or procCall
     let idt = this.consume("idT");
-    this.consume("assignT");
-    let expr = this.Expr();
-    //  console.log(expr);
-    this.hashTable.setValue(idt, expr);
+    if (this.currentToken.token === "LparenT") {
+      let procCall = this.ProcCall(idt);
+    } else if (this.currentToken.token === "assignT") {
+      this.consume("assignT");
+      let expr = this.Expr();
+      this.hashTable.setValue(idt, expr);
+    }
   }
+  ProcCall(idt) {
+    this.consume("LparenT");
+    const lookup = this.hashTable.lookup(idt);
+    let params = this.Params();
+    if (lookup) {
+      console.log(lookup);
+      if (lookup.paramInfo.length !== params.length) {
+        console.log("Procedure Call");
+        console.log(this.threeAddressCode);
+        // Find a way to implement the pushes and call to the function
+      }
+    }
+    this.consume("RparenT");
+    // Generate three address code for procedure call
+    if (params.length === 0) {
+      // No parameters
+      this.threeAddressCode.push(`call ${idt}`);
+    } else if (params.length === 1) {
+      // One parameter
+      this.threeAddressCode.push(`push ${params[0]}`);
+      this.threeAddressCode.push(`call ${idt}`);
+    } else {
+      // Multiple parameters
+      for (let i = params.length - 1; i >= 0; i--) {
+        this.threeAddressCode.push(`push ${params[i]}`);
+      }
+      this.threeAddressCode.push(`call ${idt}`);
+    }
+  }
+  Params() {
+    let params = [];
+    if (this.currentToken.token === "idT") {
+      params.push(this.consume("idT"));
+    }
+    if (this.currentToken.token === "numT") {
+      params.push(this.consume("numT"));
+    }
+    if (this.currentToken.token === "commaT") {
+      let paramsTail = this.ParamsTail();
+      console.log(paramsTail);
+      params.push(...paramsTail);
+    }
+
+    return params;
+  }
+  ParamsTail() {
+    let params = [];
+    if (this.currentToken.token === "commaT") {
+      this.consume("commaT");
+      if (this.currentToken.token === "idT") {
+        params.push(this.consume("idT"));
+        params = params.concat(this.ParamsTail());
+      } else if (this.currentToken.token === "numT") {
+        params.push(this.consume("numT"));
+        params = params.concat(this.ParamsTail());
+      }
+      return params;
+    } else {
+      return [];
+    }
+  }
+  ///----------------///----------------///----------------///----------------///----------------
   IOStat() {
     return null;
   }
@@ -473,7 +543,7 @@ class Parser {
   }
 
   consume(expectedType) {
-    // //  console.log("Consume: ", this.currentTokenIndex + 1);
+    //  console.log("Consume: ", this.currentToken.lexeme);
     if (
       this.currentTokenIndex + 1 === this.tokens.length &&
       this.currentToken.token === "eofT"
@@ -483,6 +553,7 @@ class Parser {
       // //  console.log(this.currentToken);
       let currLex = this.currentToken.lexeme;
       this.advance();
+      console.log(this.currentToken.lexeme);
       return currLex;
     } else {
       throw new SyntaxError(
@@ -494,7 +565,7 @@ class Parser {
   }
 
   advance() {
-    // //  console.log("Advance: ", this.currentToken.lexeme);
+    //  console.log("Advance: ", this.currentToken.lexeme);
     if (this.currentTokenIndex < this.tokens.length - 1) {
       const oldToken = this.currentToken;
       // //  console.log(this.currentToken.token);
