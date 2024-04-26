@@ -15,7 +15,6 @@ const FileInputComponent = () => {
         const tokenParser = new Parser(tokenList);
         const program = tokenParser.parseProgram();
         setOutput(program);
-        console.log(output);
       }
     }
   }, [fileContent]); // Dependency on fileContent only
@@ -30,7 +29,6 @@ const FileInputComponent = () => {
       const baseName =
         lastIndex > 0 ? fileName.substring(0, lastIndex) : fileName;
         setName(baseName);
-      console.log(name); // Output: "example"
     }
   };
 
