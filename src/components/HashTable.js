@@ -134,32 +134,33 @@ class HashTable {
   }
 
   writeTable(depth) {
-    let depthList = [];
+    let outputData = [];
     if (depth) {
       for (let i = 0; i < this.storage.length; i++) {
-        let current = this.storage[i].head;
-        while (current.data) {
-          if (current.data.depth === depth) {
-            depthList.push(`Lexeme : ${current.data.lexeme}, Value : ${current.data.value}`);
-            // console.log(current.data);
-          }
-          if (current.next) {
-            current = current.next;
-          } else {
-            break;
+        if (this.storage[i]) {  // if it is not undefined or null
+          let current = this.storage[i].head;
+          while (current.data) {
+            if (current.data.depth === depth) {
+              outputData.push(current.data.lexeme);
+            }
+            if (current.next) {
+              current = current.next;
+            } else {
+              break;
+            }
           }
         }
       }
-      console.log("The lexeme found in depth " + depth + ":");
-      depthList.forEach((element) => {
-        console.log(element);
+      // console.log("The lexeme found in depth " + depth + ":");
+      outputData.forEach((element) => {
+        // console.log(element);
       });
       console.log("Exiting depth...");
     } else {
       this.storage.map((node) => {
         let store = node.head;
         while (store.data) {
-          console.log(`${store.data.lexeme} : ${store.data.offset}`);
+          // console.log(`${store.data.lexeme} : ${store.data.offset}`);
           if (store.next === null) {
             break;
           } else store = store.next;
@@ -167,9 +168,10 @@ class HashTable {
       });
       console.log(this.storage);
     }
+    return outputData;
   }
 
-  setValue(lexeme, props) {
+  setValue(parameter, lexeme, props) {
     let searchResults = this.lookup(lexeme);
     let data;
     if (!searchResults) {
@@ -183,7 +185,7 @@ class HashTable {
         if (currNode.data.lexeme == lexeme) {
           data = {
             ...currNode.data,
-            value: props,
+            [parameter]: props,
           };
           this.storage[index].head.data = data;
         }
@@ -248,8 +250,9 @@ class HashTable {
             data.lexeme == current.data.lexeme &&
             data.depth == current.data.depth
           ) {
+            // SOLVE THE ISSUE WITH DECLARED VARIABLES
             console.error(`Variable ${data.lexeme} already declared.`);
-            return;
+            
           } else {
             this.storage[index].insertHead(data);
             // console.log("Passed! " + data.lexeme +" " + data.offset);
@@ -292,18 +295,17 @@ class HashTable {
     let hashIndex = hash(lexeme, this.storageLimit);
     let current = this.storage[hashIndex].head;
     // console.log("Looking up: ", lexeme);
-      while (current) {
-        if (current.data.lexeme === lexeme) {
-          // console.log(current.data);
-          return current.data;
-          break;
-        }
-        current = current.next;
+    while (current) {
+      if (current.data.lexeme === lexeme) {
+        // console.log(current.data);
+        // return current.data;
+        break;
       }
-    if(current !== null) {
-      return current.data;
+      current = current.next;
     }
-    else {
+    if (current !== null) {
+      return current.data;
+    } else {
       const errorMessage = `Variable ${lexeme} is not declared...`;
       return errorMessage;
     }
