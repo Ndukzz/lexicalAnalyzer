@@ -20,7 +20,7 @@ const DownloadFile = (props) => {
   };
   return (
     <div>
-      <button onClick={handleDownload}>Download File</button>
+      <button onClick={handleDownload}>Download Output</button>
     </div>
   );
 };
