@@ -48,7 +48,6 @@ const FileInputComponent = () => {
         <div>
           <h4>File Content:</h4>
           <pre>{fileContent}</pre>
-          {output ? <pre>{output}</pre> : "Nothing to display yet"}
         </div>
       )}
       {name && output && <DownloadFile name={name} content={output} />}
