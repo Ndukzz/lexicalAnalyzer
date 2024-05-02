@@ -25,9 +25,16 @@ class Parser {
       paramInfo: [],
     };
     this.threeAddressCode = "";
+    this.tempCount = 0;
+  }
+
+  newTemp() {
+    const tempName = `_t${this.tempCount++}`;
+    return tempName;
   }
 
   insertIdentifiers({ identifiers, type, depth, extraInfo = {} }) {
+    console.log(identifiers[0], type);
     this.hashTable.insert(identifiers, type, depth, extraInfo);
     this.Identifiers = [];
   }
@@ -35,22 +42,22 @@ class Parser {
   pushToStack(typeOfVar, list = []) {
     // list = list.reverse();
     // typeOfVar is either formal, local or temp
-    let stack = this.proc ?  this.procStack.items : this.mainStack.items;
+    let stack = this.proc ? this.procStack.items : this.mainStack.items;
     let offset;
     let totalOffset = 0;
     switch (typeOfVar) {
       case "normal":
         let element = "";
         let currIndex = stack.length;
-      
+
         for (let i = 0; i != list.length; i++) {
           element = list[i];
           const lookup = this.hashTable.lookup(element);
           let size = this.GetSize(lookup.type);
-          if (stack.length == 0 ) {
+          if (stack.length == 0) {
             totalOffset = size;
           } else {
-            totalOffset = Object.values(stack[stack.length -1])[0] + size;
+            totalOffset = Object.values(stack[stack.length - 1])[0] + size;
           }
           // console.log(totalOffset + " " + list[i]);
           //create block
@@ -64,17 +71,17 @@ class Parser {
         // console.log(this.mainStack.items);
         // console.log(this.procStack.items);
         break;
-        case "address":
-          totalOffset =0;
-          let offsetList = [];
-          let BPIndex = stack.length;
-          //  pushing the return address and OLD BP into the stack
-          if (BPIndex == 1) {
-          } else {
-            for (let index = BPIndex - 1; index >= 0; index--) {
-              offset = Object.values(stack[index])[0];
-              offsetList.push(offset)      
-              offsetList = offsetList.reverse();
+      case "address":
+        totalOffset = 0;
+        let offsetList = [];
+        let BPIndex = stack.length;
+        //  pushing the return address and OLD BP into the stack
+        if (BPIndex == 1) {
+        } else {
+          for (let index = BPIndex - 1; index >= 0; index--) {
+            offset = Object.values(stack[index])[0];
+            offsetList.push(offset);
+            offsetList = offsetList.reverse();
           }
           for (let index = BPIndex - 1; index >= 0; index--) {
             // console.log(offsetList);
@@ -160,6 +167,7 @@ class Parser {
     if (this.currentToken.token === "constT") {
       this.consume("constT");
       let constTail = this.ConstTail();
+
       this.identifiers = [];
       return constTail;
     } else {
@@ -180,7 +188,7 @@ class Parser {
         value,
         constVar: type,
       };
-      if (value % 1 ==0) {
+      if (value % 1 == 0) {
         type = "intT";
         this.procInfo.sizeLocals += 2;
       } else {
@@ -189,9 +197,10 @@ class Parser {
       }
       this.identifiers.push(identifiers);
       this.insertIdentifiers({ identifiers, type, depth, extraInfo });
-      this.pushToStack("normal",[identifiers] );
+      this.pushToStack("normal", [identifiers]);
       this.consume("semicolonT");
       // console.log(identifiers);
+      this.threeAddressCode += `${identifiers[0]} = ${value};\n`;
       this.ConstTail();
       return this.identifiers;
     } else {
@@ -224,9 +233,8 @@ class Parser {
         size,
       };
       if (type == "intT") {
-      this.procInfo.sizeLocals += 2 * identifiers.length;
+        this.procInfo.sizeLocals += 2 * identifiers.length;
       } else if (type == "realT") {
-        
         this.procInfo.sizeLocals += 4 * identifiers.length;
       }
       // insert into hashTable
@@ -234,7 +242,7 @@ class Parser {
       this.consume("semicolonT");
       let result = this.identifiers;
       this.insertIdentifiers({ identifiers, type, depth, extraInfo });
-      this.pushToStack("normal",identifiers);
+      this.pushToStack("normal", identifiers);
       this.VarTail();
       return result;
     } else {
@@ -289,17 +297,20 @@ class Parser {
     console.log(heading);
     if (this.currentToken.token === "colonT") {
       this.consume("colonT");
-      this.TypeMark();
+      type = this.TypeMark();
     }
     this.consume("semicolonT");
-    
+
     let procBody = this.ProcBody();
     this.consume("idT");
     this.consume("semicolonT");
     // insert the localSize
-    this.hashTable.insert({ ...heading });
-    let list = this.hashTable.writeTable();
-    console.log(list);
+    this.insertIdentifiers({
+      identifiers: [heading.procName],
+      type: heading.type,
+      depth: heading.currentDepth,
+      extraInfo: heading.procInfo,
+    });
     // this.hashTable.lookup('summit')
     this.depth--;
     console.log(this.procStack);
@@ -312,27 +323,30 @@ class Parser {
   }
   ProcHeading() {
     let type = this.consume("procedureT");
+    let currentDepth = this.depth; // adjust this without changing its value
     let identifiers = [];
     let procName = this.consume("idT");
-    procName = [procName];
-    // this.consume("idT");
-    let currentDepth = this.depth++;
-    this.proc = !this.proc;   //  Switches from main stack to proc Stack
-    let procInfo = this.Args("formal");
-    this.proc = !this.proc;   //  Switches from procedure stack to mainStack
-    // console.log(procInfo.identifiers);
-    this.pushToStack("normal", procName);
-    this.proc = !this.proc;   //  Switches from main stack to proc Stack
-    this.hashTable.insert(procName, "Procedure", currentDepth, procInfo);
-    this.pushToStack("address");
-    //RESET THE PROCINFO might move this up
-    this.procInfo = {
-      sizeParams: 0,
-      sizeLocals: 0,
-      numOfParams: 0,
-      paramInfo: {},
-    };
-    return { procName, type, currentDepth, procInfo };
+    identifiers.push(procName);
+    if (this.currentToken.token === "semicolonT") {
+      console.log(currentDepth);
+      let list = this.hashTable.writeTable();
+      console.log(list);
+      return { procName, type, currentDepth };
+    } else {
+      // this.consume("idT");
+      this.proc = !this.proc; //  Switches from main stack to proc Stack
+      let procInfo = this.Args("formal");
+      this.proc = !this.proc; //  Switches from procedure stack to mainStack
+      this.pushToStack("address");
+      //RESET THE PROCINFO might move this up
+      this.procInfo = {
+        sizeParams: 0,
+        sizeLocals: 0,
+        numOfParams: 0,
+        paramInfo: {},
+      };
+      return { procName, type, currentDepth, procInfo };
+    }
   }
   ProcBody() {
     let declaredVarList = this.DeclarativePart();
@@ -385,7 +399,7 @@ class Parser {
     // console.log(identifiers);
 
     this.insertIdentifiers({ identifiers, type, depth, size });
-    this.pushToStack( "normal", identifiers);
+    this.pushToStack("normal", identifiers);
     this.identifiers = [];
     let moreArgs = this.MoreArgs();
     if (moreArgs === null) {
@@ -434,6 +448,7 @@ class Parser {
   SeqOfStatements() {
     if (this.currentToken.token === "idT") {
       this.Statement();
+      this.currentToken.token === "RparenT" && this.consume("RparenT");
       this.consume("semicolonT");
       this.StatTail();
     } else {
@@ -443,8 +458,17 @@ class Parser {
   StatTail() {
     if (this.currentToken.token === "idT") {
       this.Statement();
+      this.currentToken.token === "RparenT" && this.consume("RparenT");
       this.consume("semicolonT");
       this.StatTail();
+    }
+    if (
+      this.currentToken.token === "readT" ||
+      this.currentToken.token === "writeT" ||
+      this.currentToken.token === "writelnT"
+    ) {
+      this.Statement();
+      this.consume("semicolonT");
     } else {
       return null;
     }
@@ -453,6 +477,7 @@ class Parser {
     if (this.currentToken.token === "idT") {
       this.AssignStat();
     } else {
+      console.log("Almost in!!!");
       this.IOStat();
     }
   }
@@ -469,37 +494,42 @@ class Parser {
       let expr = this.Expr();
       console.log(expr);
       this.hashTable.setValue("value", idt, expr);
-      console.log(`${idt} : ${expr}`);
+      this.threeAddressCode += `${idt} = ${expr}\n`;
+      // console.log(`${idt} : ${expr}`);
     }
   }
   ProcCall(idt) {
     this.consume("LparenT");
+    this.hashTable.writeTable(0);
+    console.log(idt);
     const lookup = this.hashTable.lookup(idt);
     let params = this.Params();
     if (lookup) {
       console.log(lookup);
-      if (lookup.paramInfo.length !== params.length) {
+      if (lookup.paramInfo?.length !== params.length) {
         console.log("Procedure Call");
         // Find a way to implement the pushes and call to the function
+      } else {
+        return;
       }
     }
-    this.consume("RparenT");
+    // this.consume("RparenT");
     // Generate three address code for procedure call
     let output = this.threeAddressCode;
     if (params.length === 0) {
       // No parameters
-      output = (`call ${idt}`);
-    } else{
+      output = `call ${idt} \n`;
+    } else {
       // Multiple parameters
-      for (let i = 0; i <= params.length -1; i++) {
-        console.log(lookup.paramInfo[i]);     
+      for (let i = 0; i <= params.length - 1; i++) {
+        console.log(lookup.paramInfo[i]);
         if (lookup.paramInfo[i].passingMode == "reference") {
-          output += (`push @${params[i]} ${String.fromCharCode(13)}`);
+          output += `push @${params[i]}\n`;
         } else {
-          output += (`push ${params[i]}  ${String.fromCharCode(13)}`);
+          output += `push ${params[i]}\n`;
         }
       }
-      output += (`call ${idt}`);
+      output += `call ${idt}`;
       this.threeAddressCode = output;
       console.log(this.threeAddressCode);
       // this.threeAddressCode.push(`call ${idt}`);
@@ -537,9 +567,6 @@ class Parser {
       return [];
     }
   }
-  IOStat() {
-    return null;
-  }
   Expr() {
     return this.Relation();
   }
@@ -549,19 +576,16 @@ class Parser {
 
   //////////////////////////////////////////////////
   SimpleExpr() {
-    let term = this.Term();
-    console.log(term);
-    let result;
-    let moreTerm = this.MoreTerm();
-    // console.log(moreTerm);
-
-    // HANDLE THE RESULTS OF MORETERM
-    if (moreTerm == null) {
-      return term; // Work on this
-    } else {
-      term = HandleAddOp(term, moreTerm.value, moreTerm.operator);
+    let left = this.Term();
+    while (this.currentToken.token === 'addOp') {
+        let operator = this.currentToken.lexeme;  // Get the operator symbol
+        this.consume('addOp');  // Move past the operator
+        let right = this.Term();
+        let temp = this.newTemp();
+        this.threeAddressCode += `${temp} = ${left} ${operator} ${right}\n`;  // Generate TAC
+        left = temp;  // Update left to the new temp for next operation
     }
-    return term;
+    return left;
   }
   MoreTerm() {
     let term;
@@ -584,24 +608,18 @@ class Parser {
   }
   //////////////////////////////////////////////////
   Term() {
-    let factor = this.Factor();
-    if (factor == "varNotFoundError") {
-      // Attempted handling the errors
-      throw new Error("Variable not found");
-      return;
+    let left = this.Factor();
+    while (this.currentToken.token === 'mulOp') {
+        let operator = this.currentToken.lexeme;  // Get the operator symbol
+        this.consume('mulOp');  // Move past the operator
+        let right = this.Factor();
+        let temp = this.newTemp();
+        this.threeAddressCode += `${temp} = ${left} ${operator} ${right}\n`;  // Generate TAC
+        left = temp;  // Update left to the new temp for next operation
     }
-    let moreFactor = this.MoreFactor();
-    // //  console.log(moreFactor);
-    if (!isNaN(factor)) {
-      // if the factor is a number
-      factor = parseNumber(factor); // convert the string to number
-    }
-    if (moreFactor) {
-      factor = HandleMulOp(factor, moreFactor.value, moreFactor.operator);
-      // //  console.log(factor);
-    }
-    return factor; // UPDATE that eventually
+    return left;
   }
+
   MoreFactor() {
     let factor;
     if (this.currentToken.token === "mulOp") {
@@ -629,45 +647,28 @@ class Parser {
     }
   }
   Factor() {
-    const currToken =  this.currentToken;
-    console.log(currToken.token);
-    // this.consume();
-    switch (currToken.token) {
-      case "idT":
-        console.log("Inn");
-        let token = this.consume("idT");
-        const lookup = this.hashTable.lookup(token);
-        console.log(lookup);
-        if (lookup.value) {
-          return parseNumber(lookup.value); // convert the string to number
-          // return parseInt(lookup.value);
-        } else {
-          //  console.error(`Error Message: Undefined variable ${token}`);
-          return "varNotFoundError";
-        }
-        break;
-      case "numT":
-        const numT = this.consume("numT");
-        return numT;
-        break;
-      case "LparenT":
-        this.consume("LparenT");
-        let expr = this.Expr(); //work on this
-        this.consume("RparenT");
-        //  console.log(expr);
-        return expr;
-        break;
-      case "notT":
-        this.consume("notT");
-        let factor = this.Factor();
-        return `!${factor}`;
-        break;
-      case "SignOp": //WORKON: It wasn't clear
-        this.SignOp();
-        this.Factor();
-        break;
-      default:
-        break;
+    
+    if (this.currentToken.token === "numT") {
+      let value = this.currentToken.lexeme;
+      this.consume("numT");
+      return value; // Directly return the number for simplicity
+    } else if (this.currentToken.token === "idT") {
+      let name = this.currentToken.lexeme;
+      this.consume("idT");
+      return name; // Directly return the identifier name
+    }
+    // Optionally handle parentheses
+    else if (this.currentToken.token === "LparenT") {
+      this.consume("LparenT"); // Consume the '('
+      let value = this.Expr(); // Recursively parse the expression inside the parentheses
+      if (this.currentToken.token === "RparenT") {
+        this.consume("RparenT"); // Consume the ')'
+      } else {
+        throw new Error("Expected closing parenthesis");
+      }
+      return value;
+    } else if (this.currentToken.token === "addOp") {
+      let signOp = this.SignOp();
     }
   }
   Addop() {
@@ -693,7 +694,124 @@ class Parser {
   }
 
   SignOp() {
-    return null; // wasnt clear on this too
+    let signOp = this.consume("addOp");
+    return signOp; // wasnt clear on this too
+  }
+  //  THIS IS THE LAST STRAW
+  //-------------//-------------//-------------//-------------
+  IOStat() {
+    if (this.currentToken.token === "readT") {
+      this.consume("readT");
+      let id = this.consume("idT"); // Assuming the next token is the identifier
+      let variable = this.hashTable.lookup(id);
+      if (!variable) {
+        console.error(`Error: Variable ${id} not declared.`);
+        return;
+      }
+      let suffix = variable.type === "INTEGER" ? "i" : "s";
+      this.threeAddressCode += `rd${suffix} ${id}\n`;
+      this.consume("RparenT");
+    } else if (
+      this.currentToken.token === "writeT" ||
+      this.currentToken.token === "writelnT"
+    ) {
+      let suffix = this.currentToken.token === "writeT" ? "i" : "ln";
+      this.consume(this.currentToken.token);
+      this.consume("LparenT");
+      while (this.currentToken.token !== "RparenT") {
+        let id = this.consume("idT");
+        let variable = this.hashTable.lookup(id);
+        if (!variable) {
+          console.error(`Error: Variable ${id} not declared.`);
+          return;
+        }
+        suffix = variable.type === "INTEGER" ? "i" : "s";
+        this.threeAddressCode += `wr${suffix} ${id}\n`;
+        if (this.currentToken.token === "commaT") {
+          this.consume("commaT");
+        }
+      }
+      if (suffix === "ln") {
+        this.threeAddressCode += "wrln\n";
+      }
+      this.consume("RparenT");
+    }
+  }
+
+  // IOStat() {
+  //   if (this.currentToken.token == "readT") {
+  //     this.InStat();
+  //   } else if (
+  //     this.currentToken.token === "readT" ||
+  //     this.currentToken.token === "writeT" ||
+  //     this.currentToken.token === "writelnT"
+  //   ) {
+  //     this.OutStat();
+  //   } else {
+  //     return;
+  //   }
+  // }
+
+  InStat() {
+    this.consume("readT");
+    this.consume("LparenT");
+    this.IdList(); //declare this method
+    this.consume("RparenT");
+  }
+
+  IdList() {
+    this.consume("idT");
+    this.IdListTail();
+  }
+
+  IdListTail() {
+    if (this.currentToken.token == "commaT") {
+      this.consume("commaT");
+      this.consume("idT");
+      this.IdListTail();
+    } else {
+      return;
+    }
+  }
+
+  OutStat() {
+    if (this.currentToken.token === "writeT") {
+      this.consume("writeT");
+    }
+    if (this.currentToken.token === "writelnT") {
+      // ADD THE LOGIC FOR A NEW LINE BEFORE THE STATEMENT
+      this.consume("writelnT");
+    }
+    this.consume("LparenT");
+    this.WriteList();
+    this.consume("RparenT");
+  }
+
+  WriteList() {
+    this.WriteToken();
+    this.WriteListTail();
+  }
+
+  WriteListTail() {
+    if (this.currentToken.token === "commaT") {
+      this.consume("commaT");
+      this.WriteToken();
+      this.WriteListTail();
+    } else {
+      return;
+    }
+  }
+
+  WriteToken() {
+    console.log("I'm In now!!! Please");
+    if (this.currentToken.token === "idT") {
+      this.consume("idT");
+    }
+    if (this.currentToken.token === "numT") {
+      this.consume("numT");
+    }
+    if (this.currentToken.token === "literal") {
+    } // work on this to accept strings
   }
 
   consume(expectedType) {
